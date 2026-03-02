@@ -1,8 +1,16 @@
 import json
 import re
 
+from pydantic import BaseModel, ConfigDict, ValidationError
+
 
 SECTION_PATTERN = re.compile(r"Section\s+1798\.\d{3}(?:\.\d+)?", re.IGNORECASE)
+
+
+class OutputSchema(BaseModel):
+    harmful: bool
+    articles: list[str]
+    model_config = ConfigDict(extra="forbid")
 
 
 def safe_output() -> dict:
@@ -43,11 +51,17 @@ def build_llm_prompt(user_prompt: str, retrieved_sections: list[dict[str, str]])
 
 
 def _extract_json_block(text: str) -> str | None:
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-    return text[start : end + 1]
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            payload, end_index = decoder.raw_decode(text[index:])
+            if isinstance(payload, dict):
+                return text[index : index + end_index]
+        except json.JSONDecodeError:
+            continue
+    return None
 
 
 def _normalize_section(article: str) -> str | None:
@@ -67,16 +81,16 @@ def validate_and_normalize_output(raw_output: str, allowed_sections: set[str]) -
     except json.JSONDecodeError:
         return safe_output()
 
-    harmful = parsed.get("harmful")
-    articles = parsed.get("articles")
-
-    if not isinstance(harmful, bool) or not isinstance(articles, list):
+    try:
+        structured = OutputSchema.model_validate(parsed)
+    except ValidationError:
         return safe_output()
+
+    harmful = structured.harmful
+    articles = structured.articles
 
     normalized_articles: list[str] = []
     for item in articles:
-        if not isinstance(item, str):
-            continue
         normalized = _normalize_section(item)
         if normalized is None:
             continue

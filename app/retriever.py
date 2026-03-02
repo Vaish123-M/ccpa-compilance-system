@@ -31,9 +31,11 @@ class CCPASectionRetriever:
             show_progress_bar=False,
         ).astype(np.float32)
 
-        _, indices = self.index.search(query_embedding, top_k)
+        scores, indices = self.index.search(query_embedding, top_k)
 
         output: list[dict[str, str]] = []
-        for index in indices[0].tolist():
-            output.append(self.sections[index])
+        for rank, index in enumerate(indices[0].tolist()):
+            item = dict(self.sections[index])
+            item["score"] = float(scores[0][rank])
+            output.append(item)
         return output

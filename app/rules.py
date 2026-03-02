@@ -31,14 +31,33 @@ RULES: list[tuple[re.Pattern[str], str]] = [
         ),
         "Section 1798.100",
     ),
+    (
+        re.compile(
+            r"share.*(personal information|consumer data).*(without|no).*(opt[- ]?out|notice)|"
+            r"without|no.*(opt[- ]?out|notice).*(share|sharing).*(personal information|consumer data)",
+            re.IGNORECASE,
+        ),
+        "Section 1798.120",
+    ),
+    (
+        re.compile(
+            r"den(y|ied|ying).*(access request|right to know)|ignore.*(access request|right to know)",
+            re.IGNORECASE,
+        ),
+        "Section 1798.110",
+    ),
 ]
 
 
 def detect_high_confidence_violation(prompt: str) -> dict[str, object] | None:
+    normalized_prompt = prompt.strip()
+    if not normalized_prompt:
+        return None
+
     matched_sections: list[str] = []
 
     for pattern, section in RULES:
-        if pattern.search(prompt):
+        if pattern.search(normalized_prompt):
             if section not in matched_sections:
                 matched_sections.append(section)
 

@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict
 
 from .loader import load_ccpa_sections
@@ -35,7 +36,7 @@ async def lifespan(application: FastAPI):
     pdf_path = os.getenv("CCPA_PDF_PATH", "ccpa_statute.pdf")
     model_id = os.getenv("MODEL_ID", "microsoft/Phi-3-mini-4k-instruct")
     embedding_model = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-    top_k = int(os.getenv("RETRIEVAL_TOP_K", "3"))
+    top_k = max(1, int(os.getenv("RETRIEVAL_TOP_K", "3")))
 
     sections = load_ccpa_sections(pdf_path)
     retriever = CCPASectionRetriever(sections=sections, embedding_model=embedding_model)
@@ -52,6 +53,19 @@ async def lifespan(application: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+@app.get("/", response_class=HTMLResponse)
+def home() -> str:
+    return (
+        "<html><head><title>CCPA Detection API</title></head>"
+        "<body style='font-family: Arial, sans-serif; margin: 2rem;'>"
+        "<h1>CCPA Detection API is running</h1>"
+        "<p>Use the interactive API docs to test endpoints.</p>"
+        "<p><a href='/docs'>Open Swagger UI (/docs)</a></p>"
+        "<p><a href='/health'>Health Check (/health)</a></p>"
+        "</body></html>"
+    )
+
+
 @app.get("/health", status_code=200)
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -60,12 +74,16 @@ def health() -> dict[str, str]:
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     try:
-        rule_match = detect_high_confidence_violation(request.prompt)
+        user_prompt = request.prompt.strip()
+        if not user_prompt:
+            return AnalyzeResponse(**safe_output())
+
+        rule_match = detect_high_confidence_violation(user_prompt)
         if rule_match is not None:
             return AnalyzeResponse(**rule_match)
 
-        retrieved_sections = app.state.retriever.retrieve(request.prompt, k=app.state.top_k)
-        llm_prompt = build_llm_prompt(request.prompt, retrieved_sections)
+        retrieved_sections = app.state.retriever.retrieve(user_prompt, k=app.state.top_k)
+        llm_prompt = build_llm_prompt(user_prompt, retrieved_sections)
         raw_output = app.state.llm.generate(llm_prompt)
 
         allowed_sections = extract_allowed_sections(retrieved_sections)

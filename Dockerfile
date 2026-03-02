@@ -4,7 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
 	PIP_NO_CACHE_DIR=1 \
 	DEBIAN_FRONTEND=noninteractive \
-	HF_HOME=/opt/hf-cache
+	HF_HOME=/opt/hf-cache \
+	CCPA_PDF_PATH=ccpa_statute.pdf \
+	RETRIEVAL_TOP_K=3
 
 WORKDIR /app
 

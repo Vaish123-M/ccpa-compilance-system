@@ -41,7 +41,8 @@ class ComplianceLLM:
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=False,
-            temperature=0.0,
+            temperature=None,
+            top_p=None,
         )
 
         prompt_tokens = inputs["input_ids"].shape[1]
