@@ -25,7 +25,7 @@ ENV HF_TOKEN=${HF_TOKEN}
 ENV MODEL_ID=${MODEL_ID}
 ENV EMBEDDING_MODEL=${EMBEDDING_MODEL}
 
-RUN python -c "import os; from transformers import AutoTokenizer, AutoModelForCausalLM; from sentence_transformers import SentenceTransformer; token=os.getenv('HF_TOKEN') or None; model=os.getenv('MODEL_ID', 'microsoft/Phi-3-mini-4k-instruct'); embed=os.getenv('EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2'); AutoTokenizer.from_pretrained(model, token=token, trust_remote_code=True); AutoModelForCausalLM.from_pretrained(model, token=token, trust_remote_code=True); SentenceTransformer(embed); print('Model assets cached at build time')"
+
 
 COPY . .
 
