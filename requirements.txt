@@ -1,7 +1,8 @@
-fastapi
-uvicorn
-transformers
-torch
-sentence-transformers
-faiss-cpu
-pypdf
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+transformers==4.49.0
+sentence-transformers==3.4.1
+faiss-cpu==1.10.0
+pypdf==5.3.1
+numpy==1.26.4
+accelerate==1.4.0

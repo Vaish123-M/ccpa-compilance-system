@@ -1,23 +1,39 @@
-from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
-class CCPAIndex:
-    def __init__(self, sections):
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.section_keys = list(sections.keys())
-        self.section_texts = list(sections.values())
 
-        embeddings = self.model.encode(self.section_texts)
-        self.index = faiss.IndexFlatL2(embeddings.shape[1])
-        self.index.add(np.array(embeddings))
+class CCPASectionRetriever:
+    def __init__(self, sections: list[dict[str, str]], embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        if not sections:
+            raise ValueError("Sections cannot be empty")
 
-    def retrieve(self, query, k=3):
-        query_embedding = self.model.encode([query])
-        distances, indices = self.index.search(np.array(query_embedding), k)
+        self.sections = sections
+        self.embedding_model = SentenceTransformer(embedding_model)
+        self.section_texts = [f"{item['section']}\n{item['text']}" for item in sections]
 
-        results = []
-        for idx in indices[0]:
-            results.append((self.section_keys[idx], self.section_texts[idx]))
+        embeddings = self.embedding_model.encode(
+            self.section_texts,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        ).astype(np.float32)
 
-        return results
+        self.index = faiss.IndexFlatIP(embeddings.shape[1])
+        self.index.add(embeddings)
+
+    def retrieve(self, query: str, k: int = 3) -> list[dict[str, str]]:
+        top_k = max(1, min(k, len(self.sections)))
+        query_embedding = self.embedding_model.encode(
+            [query],
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        ).astype(np.float32)
+
+        _, indices = self.index.search(query_embedding, top_k)
+
+        output: list[dict[str, str]] = []
+        for index in indices[0].tolist():
+            output.append(self.sections[index])
+        return output

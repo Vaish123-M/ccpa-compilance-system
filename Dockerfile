@@ -1,15 +1,31 @@
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1 \
+	PIP_NO_CACHE_DIR=1 \
+	DEBIAN_FRONTEND=noninteractive \
+	HF_HOME=/opt/hf-cache
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y python3 python3-pip
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	libgomp1 \
+	&& rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+ARG HF_TOKEN=""
+ARG MODEL_ID="microsoft/Phi-3-mini-4k-instruct"
+ARG EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+
+ENV HF_TOKEN=${HF_TOKEN}
+ENV MODEL_ID=${MODEL_ID}
+ENV EMBEDDING_MODEL=${EMBEDDING_MODEL}
+
+RUN python -c "import os; from transformers import AutoTokenizer, AutoModelForCausalLM; from sentence_transformers import SentenceTransformer; token=os.getenv('HF_TOKEN') or None; model=os.getenv('MODEL_ID', 'microsoft/Phi-3-mini-4k-instruct'); embed=os.getenv('EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2'); AutoTokenizer.from_pretrained(model, token=token, trust_remote_code=True); AutoModelForCausalLM.from_pretrained(model, token=token, trust_remote_code=True); SentenceTransformer(embed); print('Model assets cached at build time')"
 
 COPY . .
-
-ENV HF_TOKEN=""
 
 EXPOSE 8000
 
